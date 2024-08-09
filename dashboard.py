@@ -4,137 +4,115 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-# Membaca data
-df = pd.read_csv('all_data.csv')
+# Judul aplikasi dashboard
+st.title("E-Commerce Dashboard ✨")
 
-# Mengonversi kolom ke format datetime
-df['order_purchase_timestamp'] = pd.to_datetime(df['order_purchase_timestamp'])
-df['order_delivered_customer_date'] = pd.to_datetime(df['order_delivered_customer_date'])
+# Memuat dataset
+all_df = pd.read_csv("all_data.csv", delimiter=",")
 
-# Menghitung waktu pengiriman dalam hari
-df['delivery_time'] = (df['order_delivered_customer_date'] - df['order_purchase_timestamp']).dt.days
-
-# Halaman Utama
-st.title("Dashboard E-commerce")
+# Mengubah kolom timestamp menjadi tipe datetime
+all_df['order_purchase_timestamp'] = pd.to_datetime(all_df['order_purchase_timestamp'])
 
 # Sidebar untuk navigasi
 st.sidebar.title("Navigasi")
-options = st.sidebar.radio("Pilih Pertanyaan Bisnis", (
-    "Distribusi Status Pesanan",
-    "Rata-rata Waktu Pengiriman Berdasarkan Status Pesanan",
-    "Total Nilai Pembayaran per Kota",
-    "Distribusi Jenis Pembayaran",
-    "Total Pembayaran Berdasarkan Ukuran Produk",
-    "Hubungan antara Waktu Pengiriman, Harga Produk, dan Total Pembayaran"
-))
+option = st.sidebar.selectbox(
+    "Pilih Pertanyaan",
+    ["Tren Jumlah Pesanan", "Distribusi Metode Pembayaran", "Distribusi Dimensi Produk", "Jumlah Pesanan per Kota Penjual"]
+)
 
-# Pertanyaan 1: Distribusi Status Pesanan
-if options == "Distribusi Status Pesanan":
-    st.header("Distribusi Status Pesanan")
-    status_counts = df['order_status'].value_counts().reset_index()
-    status_counts.columns = ['order_status', 'count']
+# Pertanyaan 1: Tren Jumlah Pesanan dari Waktu ke Waktu
+if option == "Tren Jumlah Pesanan":
+    st.header("Pertanyaan 1: Bagaimana tren jumlah pesanan dari waktu ke waktu?")
 
-    plt.figure(figsize=(10, 6))
-    sns.barplot(x='order_status', y='count', data=status_counts, palette='viridis')
-    plt.title('Distribusi Status Pesanan')
-    plt.xlabel('Status Pesanan')
-    plt.ylabel('Jumlah Pesanan')
-    plt.xticks(rotation=45)
-    plt.tight_layout()
+    # Menghitung jumlah pesanan per bulan
+    monthly_orders = all_df.set_index('order_purchase_timestamp').resample('M')['order_id'].count().reset_index()
+    monthly_orders.columns = ['Month', 'Order Count']
 
-    st.pyplot(plt)
+    # Menampilkan Line Plot dan Bar Plot
+    fig, ax = plt.subplots(1, 2, figsize=(18, 8))
 
-# Pertanyaan 2: Rata-rata Waktu Pengiriman Berdasarkan Status Pesanan
-if options == "Rata-rata Waktu Pengiriman Berdasarkan Status Pesanan":
-    st.header("Rata-rata Waktu Pengiriman Berdasarkan Status Pesanan")
+    sns.lineplot(x='Month', y='Order Count', data=monthly_orders, marker='o', ax=ax[0])
+    ax[0].set_title('Tren Jumlah Pesanan dari Waktu ke Waktu')
+    ax[0].set_xlabel('Bulan')
+    ax[0].set_ylabel('Jumlah Pesanan')
+    ax[0].tick_params(axis='x', rotation=45)
 
-    delivery_time_status = df.groupby('order_status')['delivery_time'].mean().reset_index()
+    sns.barplot(x='Month', y='Order Count', data=monthly_orders, palette='viridis', ax=ax[1])
+    ax[1].set_title('Jumlah Pesanan per Bulan')
+    ax[1].set_xlabel('Bulan')
+    ax[1].set_ylabel('Jumlah Pesanan')
+    ax[1].tick_params(axis='x', rotation=45)
 
-    plt.figure(figsize=(10, 6))
-    sns.barplot(x='order_status', y='delivery_time', data=delivery_time_status, palette='viridis')
-    plt.title('Rata-rata Waktu Pengiriman Berdasarkan Status Pesanan')
-    plt.xlabel('Status Pesanan')
-    plt.ylabel('Rata-rata Waktu Pengiriman (hari)')
-    plt.xticks(rotation=45)
-    plt.tight_layout()
+    st.pyplot(fig)
 
-    st.pyplot(plt)
+# Pertanyaan 2: Distribusi Metode Pembayaran
+elif option == "Distribusi Metode Pembayaran":
+    st.header("Pertanyaan 2: Apa saja metode pembayaran yang paling sering digunakan?")
 
-# Pertanyaan 3: Total Nilai Pembayaran per Kota
-if options == "Total Nilai Pembayaran per Kota":
-    st.header("Total Nilai Pembayaran per Kota")
+    # Menghitung distribusi metode pembayaran
+    payment_counts = all_df['payment_type'].value_counts().reset_index()
+    payment_counts.columns = ['payment_type', 'count']
 
-    payment_by_city = df.groupby('seller_city')['payment_value'].sum().reset_index()
-    top_10_cities_by_payment = payment_by_city.nlargest(10, 'payment_value')
+    # Menampilkan Bar Plot dan Pie Chart
+    fig, ax = plt.subplots(1, 2, figsize=(18, 8))
 
-    plt.figure(figsize=(12, 8))
-    sns.barplot(x='seller_city', y='payment_value', data=top_10_cities_by_payment, palette='viridis')
-    plt.title('10 Kota dengan Nilai Pembayaran Tertinggi')
-    plt.xlabel('Kota')
-    plt.ylabel('Nilai Pembayaran')
-    plt.xticks(rotation=45)
-    plt.tight_layout()
+    sns.barplot(x='payment_type', y='count', data=payment_counts, palette='viridis', ax=ax[0])
+    ax[0].set_title('Distribusi Metode Pembayaran')
+    ax[0].set_xlabel('Metode Pembayaran')
+    ax[0].set_ylabel('Jumlah Pembayaran')
 
-    st.pyplot(plt)
+    ax[1].pie(payment_counts['count'], labels=payment_counts['payment_type'], autopct='%1.1f%%',
+              colors=sns.color_palette('viridis', n_colors=len(payment_counts)), startangle=140)
+    ax[1].set_title('Distribusi Metode Pembayaran')
 
-# Pertanyaan 4: Distribusi Jenis Pembayaran
-if options == "Distribusi Jenis Pembayaran":
-    st.header("Distribusi Jenis Pembayaran")
+    st.pyplot(fig)
 
-    payment_type_counts = df['payment_type'].value_counts().reset_index()
-    payment_type_counts.columns = ['payment_type', 'count']
+# Pertanyaan 3: Distribusi Dimensi Produk
+elif option == "Distribusi Dimensi Produk":
+    st.header("Pertanyaan 3: Bagaimana sebaran panjang, tinggi, dan lebar produk?")
 
-    plt.figure(figsize=(10, 6))
-    sns.barplot(x='payment_type', y='count', data=payment_type_counts, palette='viridis')
-    plt.title('Distribusi Jenis Pembayaran')
-    plt.xlabel('Jenis Pembayaran')
-    plt.ylabel('Jumlah Pembayaran')
-    plt.xticks(rotation=45)
-    plt.tight_layout()
+    # Menampilkan Histogram untuk dimensi produk
+    fig, ax = plt.subplots(1, 3, figsize=(15, 6))
 
-    st.pyplot(plt)
+    sns.histplot(all_df['product_length_cm'].dropna(), bins=30, kde=True, color='blue', ax=ax[0])
+    ax[0].set_title('Distribusi Panjang Produk')
+    ax[0].set_xlabel('Panjang (cm)')
+    ax[0].set_ylabel('Jumlah')
 
-# Pertanyaan 5: Total Pembayaran Berdasarkan Ukuran Produk
-if options == "Total Pembayaran Berdasarkan Ukuran Produk":
-    st.header("Total Pembayaran Berdasarkan Ukuran Produk")
+    sns.histplot(all_df['product_height_cm'].dropna(), bins=30, kde=True, color='green', ax=ax[1])
+    ax[1].set_title('Distribusi Tinggi Produk')
+    ax[1].set_xlabel('Tinggi (cm)')
+    ax[1].set_ylabel('Jumlah')
 
-    product_size_payment = df.groupby(['product_length_cm', 'product_height_cm', 'product_width_cm'])['payment_value'].sum().reset_index()
-    top_20_product_length = product_size_payment.sort_values('product_length_cm').head(20)
+    sns.histplot(all_df['product_width_cm'].dropna(), bins=30, kde=True, color='red', ax=ax[2])
+    ax[2].set_title('Distribusi Lebar Produk')
+    ax[2].set_xlabel('Lebar (cm)')
+    ax[2].set_ylabel('Jumlah')
 
-    plt.figure(figsize=(12, 6))
-    sns.barplot(x='product_length_cm', y='payment_value', data=top_20_product_length, palette='viridis')
-    plt.title('Total Pembayaran Berdasarkan Panjang Produk (Top 20)')
-    plt.xlabel('Panjang Produk (cm)')
-    plt.ylabel('Total Pembayaran')
-    plt.xticks(rotation=45)
-    plt.tight_layout()
+    st.pyplot(fig)
 
-    st.pyplot(plt)
+# Pertanyaan 4: Jumlah Pesanan per Kota Penjual
+elif option == "Jumlah Pesanan per Kota Penjual":
+    st.header("Pertanyaan 4: Bagaimana sebaran pesanan berdasarkan kota penjual?")
 
-# Pertanyaan 6: Hubungan antara Waktu Pengiriman, Harga Produk, dan Total Pembayaran
-if options == "Hubungan antara Waktu Pengiriman, Harga Produk, dan Total Pembayaran":
-    st.header("Hubungan antara Waktu Pengiriman, Harga Produk, dan Total Pembayaran")
+    # Menghitung jumlah pesanan per kota penjual
+    city_counts = all_df['seller_city'].value_counts().reset_index()
+    city_counts.columns = ['seller_city', 'count']
 
-    product_agg = df.groupby('product_category_name').agg({
-        'delivery_time': 'mean',
-        'payment_value': ['sum', 'mean']
-    }).reset_index()
-    product_agg.columns = ['product_category_name', 'delivery_time_mean', 'payment_value_sum', 'payment_value_mean']
-    top_30_product_agg = product_agg.head(30)
+    # Menghitung distribusi pesanan per kota penjual (Top 10)
+    city_counts_top10 = city_counts.head(10)
 
-    fig, ax1 = plt.subplots(figsize=(14, 8))
-    ax1.set_xlabel('Kategori Produk')
-    ax1.set_ylabel('Rata-rata Harga Produk', color='tab:blue')
-    ax1.bar(top_30_product_agg['product_category_name'], top_30_product_agg['payment_value_mean'], color='tab:blue', alpha=0.7, label='Rata-rata Harga Produk')
-    ax1.tick_params(axis='y', labelcolor='tab:blue')
-    ax1.set_xticklabels(top_30_product_agg['product_category_name'], rotation=45, ha='right')
+    # Menampilkan Bar Plot dan Pie Chart untuk kota penjual
+    fig, ax = plt.subplots(1, 2, figsize=(18, 8))
 
-    ax2 = ax1.twinx()
-    ax2.set_ylabel('Rata-rata Waktu Pengiriman (hari)', color='tab:orange')
-    ax2.plot(top_30_product_agg['product_category_name'], top_30_product_agg['delivery_time_mean'], color='tab:orange', marker='o', label='Rata-rata Waktu Pengiriman')
-    ax2.tick_params(axis='y', labelcolor='tab:orange')
+    sns.barplot(x='seller_city', y='count', data=city_counts_top10, palette='viridis', ax=ax[0])
+    ax[0].set_title('Jumlah Pesanan per Kota Penjual (Top 10)')
+    ax[0].set_xlabel('Kota Penjual')
+    ax[0].set_ylabel('Jumlah Pesanan')
+    ax[0].tick_params(axis='x', rotation=90)
 
-    plt.title('Hubungan antara Waktu Pengiriman, Harga Produk, dan Total Pembayaran Berdasarkan Kategori Produk (Top 30)')
-    fig.tight_layout()
+    ax[1].pie(city_counts_top10['count'], labels=city_counts_top10['seller_city'], autopct='%1.1f%%',
+              colors=sns.color_palette('viridis', n_colors=len(city_counts_top10)), startangle=140)
+    ax[1].set_title('Distribusi Pesanan per Kota Penjual (Top 10)')
 
     st.pyplot(fig)
